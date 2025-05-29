@@ -1,0 +1,415 @@
+import React, { useState, useEffect } from 'react';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+
+// Pastikan variabel global ini tersedia di lingkungan Canvas
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+function App() {
+  const [db, setDb] = useState(null);
+  const [auth, setAuth] = useState(null);
+  const [userId, setUserId] = useState(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [isNavOpen, setIsNavOpen] = useState(false); // State untuk mobile nav
+
+  useEffect(() => {
+    // Inisialisasi Firebase
+    try {
+      const app = initializeApp(firebaseConfig);
+      const firestoreDb = getFirestore(app);
+      const firebaseAuth = getAuth(app);
+      setDb(firestoreDb);
+      setAuth(firebaseAuth);
+
+      // Listener untuk perubahan status autentikasi
+      const unsubscribe = onAuthStateChanged(firebaseAuth, async (user) => {
+        if (user) {
+          setUserId(user.uid);
+        } else {
+          // Jika tidak ada user, coba sign in dengan custom token atau anonim
+          if (initialAuthToken) {
+            try {
+              await signInWithCustomToken(firebaseAuth, initialAuthToken);
+              setUserId(firebaseAuth.currentUser?.uid || crypto.randomUUID());
+            } catch (error) {
+              console.error("Error signing in with custom token:", error);
+              await signInAnonymously(firebaseAuth);
+              setUserId(firebaseAuth.currentUser?.uid || crypto.randomUUID());
+            }
+          } else {
+            await signInAnonymously(firebaseAuth);
+            setUserId(firebaseAuth.currentUser?.uid || crypto.randomUUID());
+          }
+        }
+        setIsAuthReady(true);
+      });
+
+      return () => unsubscribe(); // Cleanup listener
+    } catch (error) {
+      console.error("Failed to initialize Firebase:", error);
+      // Handle error, e.g., show a message to the user
+    }
+  }, []);
+
+  // Data contoh untuk mobil
+  const cars = [
+    {
+      id: 'car1',
+      name: 'Toyota Alphard',
+      type: 'MPV Mewah',
+      passengers: 7,
+      transmission: 'Otomatis',
+      price: '1.500.000',
+      imageUrl: 'https://placehold.co/600x400/1a202c/ffffff?text=FOTO+TOYOTA+ALPHARD+DISINI', // Ganti dengan URL foto Alphard Anda
+      description: 'Kenyamanan dan kemewahan dalam setiap perjalanan. Ideal untuk keluarga atau perjalanan bisnis.',
+      features: ['Kursi Kulit', 'AC Multi-zona', 'Pintu Geser Otomatis', 'Sistem Audio Premium']
+    },
+    {
+      id: 'car2',
+      name: 'Mercedes-Benz C-Class',
+      type: 'Sedan Mewah',
+      passengers: 4,
+      transmission: 'Otomatis',
+      price: '1.800.000',
+      imageUrl: 'https://placehold.co/600x400/1a202c/ffffff?text=FOTO+MERCEDES+C-CLASS+DISINI', // Ganti dengan URL foto Mercedes-Benz C-Class Anda
+      description: 'Gaya dan performa yang tak tertandingi. Sempurna untuk acara spesial atau perjalanan bisnis.',
+      features: ['Interior Elegan', 'Sunroof', 'Navigasi GPS', 'Kamera Mundur']
+    },
+    {
+      id: 'car3',
+      name: 'Honda CR-V',
+      type: 'SUV',
+      passengers: 5,
+      transmission: 'Otomatis',
+      price: '800.000',
+      imageUrl: 'https://images.app.goo.gl/Kxqv2aQ659RRfESz8', // Ganti dengan URL foto Honda CR-V Anda
+      description: 'Kenyamanan dan ketangguhan untuk setiap petualangan. Cocok untuk perjalanan keluarga.',
+      features: ['Ruang Kabin Luas', 'Fitur Keselamatan Lengkap', 'Bagasi Fleksibel', 'Konektivitas Smartphone']
+    },
+    {
+      id: 'car4',
+      name: 'Toyota Fortuner',
+      type: 'SUV',
+      passengers: 7,
+      transmission: 'Otomatis',
+      price: '950.000',
+      imageUrl: 'https://images.app.goo.gl/jkzXhuqritLbb7eb9', // Ganti dengan URL foto Toyota Fortuner Anda
+      description: 'Dominasi di jalan dengan kekuatan dan gaya. Ideal untuk medan berat atau perjalanan jauh.',
+      features: ['Ground Clearance Tinggi', 'Mesin Bertenaga', 'Desain Gagah', 'Sistem Hiburan Belakang']
+    },
+    {
+      id: 'car5',
+      name: 'BMW 3 Series',
+      type: 'Sedan Sport',
+      passengers: 4,
+      transmission: 'Otomatis',
+      price: '1.700.000',
+      imageUrl: 'https://placehold.co/600x400/1a202c/ffffff?text=FOTO+BMW+3+SERIES+DISINI', // Ganti dengan URL foto BMW 3 Series Anda
+      description: 'Pengalaman berkendara yang dinamis dan sporty. Untuk Anda yang mencari adrenalin.',
+      features: ['Handling Presisi', 'Akselerasi Cepat', 'Mode Berkendara Sport', 'Interior Driver-Centric']
+    },
+    {
+      id: 'car6',
+      name: 'Mitsubishi Xpander',
+      type: 'MPV',
+      passengers: 7,
+      transmission: 'Otomatis',
+      price: '650.000',
+      imageUrl: 'https://placehold.co/600x400/1a202c/ffffff?text=FOTO+MITSUBISHI+XPANDER+DISINI', // Ganti dengan URL foto Mitsubishi Xpander Anda
+      description: 'MPV serbaguna dengan kenyamanan dan efisiensi. Pilihan tepat untuk keluarga modern.',
+      features: ['Kabin Luas', 'Desain Modern', 'Efisiensi Bahan Bakar', 'Fleksibilitas Kursi']
+    }
+  ];
+
+  return (
+    <div className="font-inter antialiased text-gray-900">
+      {/* Header */}
+      <header className="fixed w-full z-50 bg-white bg-opacity-90 backdrop-blur-md shadow-sm">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          {/* Logo */}
+          <a href="#" className="text-2xl font-bold text-gray-800">KIHA RENTCAR</a>
+
+          {/* Navigasi Desktop */}
+          <nav className="hidden md:flex space-x-8">
+            <a href="#armada" className="text-gray-600 hover:text-gray-900 transition duration-300">Armada</a>
+            <a href="#why-us" className="text-gray-600 hover:text-gray-900 transition duration-300">Mengapa Kami</a>
+            <a href="#contact" className="text-gray-600 hover:text-gray-900 transition duration-300">Kontak</a>
+            <a href="#" className="text-gray-600 hover:text-gray-900 transition duration-300">Tentang Kami</a>
+          </nav>
+
+          {/* Tombol Kontak & Burger Menu */}
+          <div className="flex items-center space-x-4">
+            <a href="https://wa.me/6281372973734" target="_blank" rel="noopener noreferrer" className="hidden md:block bg-gray-800 text-white px-6 py-2 rounded-full hover:bg-gray-700 transition duration-300 shadow-lg">
+              <i className="fab fa-whatsapp mr-2"></i> WhatsApp
+            </a>
+            <button
+              onClick={() => setIsNavOpen(!isNavOpen)}
+              className="md:hidden text-gray-800 focus:outline-none"
+              aria-label="Toggle navigation"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Nav Overlay */}
+        {isNavOpen && (
+          <div className="md:hidden fixed inset-0 bg-white bg-opacity-95 backdrop-blur-md z-40 flex flex-col items-center justify-center space-y-6">
+            <button
+              onClick={() => setIsNavOpen(false)}
+              className="absolute top-4 right-4 text-gray-800 focus:outline-none"
+              aria-label="Close navigation"
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+            <a href="#armada" onClick={() => setIsNavOpen(false)} className="text-2xl font-medium text-gray-800 hover:text-gray-600 transition duration-300">Armada</a>
+            <a href="#why-us" onClick={() => setIsNavOpen(false)} className="text-2xl font-medium text-gray-800 hover:text-gray-600 transition duration-300">Mengapa Kami</a>
+            <a href="#contact" onClick={() => setIsNavOpen(false)} className="text-2xl font-medium text-gray-800 hover:text-gray-600 transition duration-300">Kontak</a>
+            <a href="#" onClick={() => setIsNavOpen(false)} className="text-2xl font-medium text-gray-800 hover:text-gray-600 transition duration-300">Tentang Kami</a>
+            <a href="https://wa.me/6281372973734" target="_blank" rel="noopener noreferrer" className="bg-gray-800 text-white px-8 py-3 rounded-full hover:bg-gray-700 transition duration-300 shadow-lg text-lg mt-8">
+              <i className="fab fa-whatsapp mr-2"></i> WhatsApp
+            </a>
+          </div>
+        )}
+      </header>
+
+      <main>
+        {/* Hero Section */}
+        <section className="relative h-screen flex items-center justify-center text-white overflow-hidden">
+          {/* Video Latar Belakang - Ganti dengan video Anda */}
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover z-0"
+            src="https://assets.mixkit.co/videos/preview/mixkit-aerial-view-of-a-car-driving-on-a-road-in-the-mountains-34676-large.mp4" // Contoh video, ganti dengan video mobil Anda
+            onError={(e) => { e.target.src = 'https://placehold.co/1920x1080/1a202c/ffffff?text=KIHA+RENTCAR'; }} // Fallback image
+          ></video>
+          <div className="absolute inset-0 bg-black opacity-60 z-10"></div> {/* Overlay gelap */}
+
+          <div className="relative z-20 text-center p-4 max-w-4xl mx-auto">
+            <h1 className="text-4xl md:text-6xl font-extrabold leading-tight mb-6 drop-shadow-lg">
+              KIHA RENTCAR: Petualangan Menanti, Kenyamanan Terjamin.
+            </h1>
+            <p className="text-lg md:text-xl mb-10 opacity-90 drop-shadow-md">
+              Temukan kendaraan sempurna untuk setiap perjalanan Anda dengan armada premium kami.
+            </p>
+            <a href="#armada" className="bg-white text-gray-800 px-8 py-4 rounded-full text-lg font-semibold hover:bg-gray-200 transition duration-300 shadow-xl transform hover:scale-105">
+              Jelajahi Armada Kami
+            </a>
+
+            {/* Form Pencarian Cepat (Simplifikasi) */}
+            <div className="bg-white bg-opacity-90 backdrop-blur-md rounded-xl p-6 md:p-8 mt-16 shadow-2xl max-w-2xl mx-auto">
+              <h2 className="text-gray-800 text-2xl font-bold mb-6">Cari Mobil Anda</h2>
+              <form className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label htmlFor="location" className="block text-gray-700 text-sm font-medium mb-2">Lokasi Pengambilan</label>
+                  <input
+                    type="text"
+                    id="location"
+                    defaultValue="Pekanbaru"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="pickup-date" className="block text-gray-700 text-sm font-medium mb-2">Tanggal Pengambilan</label>
+                  <input
+                    type="date"
+                    id="pickup-date"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="return-date" className="block text-gray-700 text-sm font-medium mb-2">Tanggal Pengembalian</label>
+                  <input
+                    type="date"
+                    id="return-date"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="md:col-span-3 mt-4">
+                  <button
+                    type="submit"
+                    className="w-full bg-gray-800 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-700 transition duration-300 shadow-md transform hover:scale-105"
+                  >
+                    Cari Mobil
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        {/* Bagian Armada */}
+        <section id="armada" className="py-16 bg-gray-50">
+          <div className="container mx-auto px-4">
+            <h2 className="text-4xl font-extrabold text-center text-gray-800 mb-12">Armada Premium Kami</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              {cars.map(car => (
+                <div key={car.id} className="bg-white rounded-xl shadow-lg overflow-hidden transform hover:scale-105 transition duration-300 ease-in-out group">
+                  <img
+                    src={car.imageUrl}
+                    alt={car.name}
+                    className="w-full h-56 object-cover transition-transform duration-300 group-hover:scale-110"
+                    onError={(e) => { e.target.src = `https://placehold.co/600x400/1a202c/ffffff?text=FOTO+${car.name.replace(/\s/g, '+')}`; }} // Fallback
+                  />
+                  <div className="p-6">
+                    <h3 className="text-2xl font-bold text-gray-800 mb-2">{car.name}</h3>
+                    <p className="text-gray-600 mb-4">{car.type}</p>
+                    <ul className="text-gray-700 text-sm mb-4 space-y-1">
+                      <li><i className="fas fa-users mr-2 text-gray-500"></i> {car.passengers} Penumpang</li>
+                      <li><i className="fas fa-cogs mr-2 text-gray-500"></i> {car.transmission}</li>
+                    </ul>
+                    <div className="flex justify-between items-center mt-4">
+                      <span className="text-xl font-bold text-gray-800">Rp {car.price} / hari</span>
+                      <button className="bg-gray-800 text-white px-6 py-2 rounded-full hover:bg-gray-700 transition duration-300 shadow-md">
+                        Lihat Detail
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="text-center mt-12">
+              <a href="#" className="inline-block bg-gray-800 text-white px-8 py-3 rounded-full text-lg font-semibold hover:bg-gray-700 transition duration-300 shadow-xl transform hover:scale-105">
+                Lihat Semua Pilihan
+              </a>
+            </div>
+          </div>
+        </section>
+
+        {/* Bagian Mengapa Memilih Kami */}
+        <section id="why-us" className="py-16 bg-white">
+          <div className="container mx-auto px-4">
+            <h2 className="text-4xl font-extrabold text-center text-gray-800 mb-12">Mengapa Memilih KIHA RENTCAR?</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+              <div className="bg-gray-50 p-8 rounded-xl shadow-md text-center transform hover:scale-105 transition duration-300">
+                <div className="text-gray-800 text-5xl mb-4">
+                  <i className="fas fa-car-side"></i>
+                </div>
+                <h3 className="text-xl font-bold text-gray-800 mb-3">Armada Terawat Prima</h3>
+                <p className="text-gray-600">Setiap kendaraan kami menjalani inspeksi ketat untuk kenyamanan dan keamanan Anda.</p>
+              </div>
+              <div className="bg-gray-50 p-8 rounded-xl shadow-md text-center transform hover:scale-105 transition duration-300">
+                <div className="text-gray-800 text-5xl mb-4">
+                  <i className="fas fa-headset"></i>
+                </div>
+                <h3 className="text-xl font-bold text-gray-800 mb-3">Layanan Pelanggan 24/7</h3>
+                <p className="text-gray-600">Dukungan responsif siap melayani Anda kapan saja, di mana saja.</p>
+              </div>
+              <div className="bg-gray-50 p-8 rounded-xl shadow-md text-center transform hover:scale-105 transition duration-300">
+                <div className="text-gray-800 text-5xl mb-4">
+                  <i className="fas fa-money-bill-wave"></i>
+                </div>
+                <h3 className="text-xl font-bold text-gray-800 mb-3">Harga Transparan</h3>
+                <p className="text-gray-600">Tanpa biaya tersembunyi. Semua jelas di awal, tanpa kejutan.</p>
+              </div>
+              <div className="bg-gray-50 p-8 rounded-xl shadow-md text-center transform hover:scale-105 transition duration-300">
+                <div className="text-gray-800 text-5xl mb-4">
+                  <i className="fas fa-check-circle"></i>
+                </div>
+                <h3 className="text-xl font-bold text-gray-800 mb-3">Proses Mudah & Cepat</h3>
+                <p className="text-gray-600">Pemesanan cepat, pengantaran dan penjemputan yang fleksibel.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Bagian Testimoni (Sederhana) */}
+        <section className="py-16 bg-gray-100">
+          <div className="container mx-auto px-4 text-center">
+            <h2 className="text-4xl font-extrabold text-gray-800 mb-12">Apa Kata Pelanggan Kami?</h2>
+            <div className="max-w-3xl mx-auto bg-white p-8 rounded-xl shadow-lg">
+              <p className="text-xl italic text-gray-700 mb-6">
+                "Pengalaman rental mobil terbaik yang pernah saya alami! Armada KIHA RENTCAR sangat terawat dan pelayanannya sangat profesional. Sangat direkomendasikan!"
+              </p>
+              <p className="font-semibold text-gray-800">- Budi Santoso</p>
+              <p className="text-gray-500 text-sm">Pelanggan Setia</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Bagian CTA Kontak */}
+        <section id="contact-cta" className="py-16 bg-gray-800 text-white text-center">
+          <div className="container mx-auto px-4">
+            <h2 className="text-4xl font-extrabold mb-6">Siap Memulai Petualangan Anda?</h2>
+            <p className="text-xl mb-8 opacity-90">
+              Hubungi kami sekarang untuk mendapatkan penawaran terbaik atau konsultasi armada.
+            </p>
+            <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-6">
+              <a href="https://wa.me/6281372973734" target="_blank" rel="noopener noreferrer" className="bg-white text-gray-800 px-8 py-4 rounded-full text-lg font-semibold hover:bg-gray-200 transition duration-300 shadow-xl transform hover:scale-105">
+                <i className="fab fa-whatsapp mr-2"></i> WhatsApp Kami
+              </a>
+              <a href="tel:+6281372973734" className="bg-transparent border-2 border-white text-white px-8 py-4 rounded-full text-lg font-semibold hover:bg-white hover:text-gray-800 transition duration-300 shadow-xl transform hover:scale-105">
+                <i className="fas fa-phone-alt mr-2"></i> Telepon Kami
+              </a>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      {/* Footer */}
+      <footer id="contact" className="bg-gray-900 text-gray-300 py-12">
+        <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Kolom 1: Logo & Deskripsi Singkat */}
+          <div>
+            <h3 className="text-2xl font-bold text-white mb-4">KIHA RENTCAR</h3>
+            <p className="text-gray-400 text-sm">
+              Penyedia layanan rental mobil premium untuk kenyamanan dan petualangan Anda di Pekanbaru.
+            </p>
+          </div>
+
+          {/* Kolom 2: Tautan Cepat */}
+          <div>
+            <h3 className="text-xl font-semibold text-white mb-4">Tautan Cepat</h3>
+            <ul className="space-y-2">
+              <li><a href="#armada" className="hover:text-white transition duration-300">Armada Kami</a></li>
+              <li><a href="#why-us" className="hover:text-white transition duration-300">Mengapa Memilih Kami</a></li>
+              <li><a href="#" className="hover:text-white transition duration-300">Tentang Kami</a></li>
+              <li><a href="#contact" className="hover:text-white transition duration-300">Kontak</a></li>
+            </ul>
+          </div>
+
+          {/* Kolom 3: Kontak & Sosial Media */}
+          <div>
+            <h3 className="text-xl font-semibold text-white mb-4">Hubungi Kami</h3>
+            <p className="mb-2">Telepon/WhatsApp: <a href="https://wa.me/6281372973734" target="_blank" rel="noopener noreferrer" className="hover:text-white transition duration-300">0813-7297-3734</a></p>
+            <p className="mb-4">Instagram: <a href="https://www.instagram.com/habbib0905" target="_blank" rel="noopener noreferrer" className="hover:text-white transition duration-300">@habbib0905</a></p>
+            <div className="flex space-x-4">
+              <a href="https://www.instagram.com/habbib0905" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition duration-300 text-2xl">
+                <i className="fab fa-instagram"></i>
+              </a>
+              <a href="https://wa.me/6281372973734" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition duration-300 text-2xl">
+                <i className="fab fa-whatsapp"></i>
+              </a>
+              {/* Tambahkan ikon media sosial lain jika ada */}
+            </div>
+          </div>
+        </div>
+        <div className="border-t border-gray-700 mt-8 pt-8 text-center text-gray-500 text-sm">
+          &copy; {new Date().getFullYear()} KIHA RENTCAR. Hak Cipta Dilindungi Undang-Undang.
+          {userId && (
+            <p className="mt-2 text-xs">
+              User ID: <span className="font-mono">{userId}</span>
+            </p>
+          )}
+        </div>
+      </footer>
+
+      {/* Tailwind CSS CDN */}
+      <script src="https://cdn.tailwindcss.com"></script>
+      {/* Font Awesome untuk ikon */}
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    </div>
+  );
+}
+
+export default App;
